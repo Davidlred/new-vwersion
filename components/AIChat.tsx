@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, X, Bot, User, BookOpen, Minimize2 } from 'lucide-react';
+import { Send, X, Bot, User, BookOpen, Minimize2, Settings, Trash2, Download } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { sendChatMessage } from '../services/geminiService';
 
@@ -7,16 +8,33 @@ interface AIChatProps {
   isOpen: boolean;
   onClose: () => void;
   goal: string;
+  history: ChatMessage[];
+  onUpdateHistory: (messages: ChatMessage[]) => void;
 }
 
-const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, goal }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'init', role: 'model', text: `I am ready to assist with your goal: "${goal}". What requires analysis?`, timestamp: Date.now() }
-  ]);
+const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, goal, history, onUpdateHistory }) => {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isStudyMode, setIsStudyMode] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Initialize or Sync Messages from Props
+  useEffect(() => {
+    if (history.length > 0) {
+      setMessages(history);
+    } else {
+       // Default Init Message if history is empty
+       const initMsg: ChatMessage = { 
+           id: 'init', 
+           role: 'model', 
+           text: `I am ready to assist with your goal: "${goal}". What requires analysis?`, 
+           timestamp: Date.now() 
+       };
+       setMessages([initMsg]);
+    }
+  }, [history, goal]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -34,17 +52,20 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, goal }) => {
       timestamp: Date.now(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    onUpdateHistory(newMessages); // Sync to parent
+    
     setInput('');
     setIsTyping(true);
 
     // Prepare history for API
-    const history = messages.map(m => ({
+    const apiHistory = newMessages.map(m => ({
       role: m.role,
       parts: [{ text: m.text }]
     }));
 
-    const responseText = await sendChatMessage(history, userMsg.text, isStudyMode);
+    const responseText = await sendChatMessage(apiHistory, userMsg.text, isStudyMode);
 
     const botMsg: ChatMessage = {
       id: (Date.now() + 1).toString(),
@@ -53,7 +74,9 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, goal }) => {
       timestamp: Date.now(),
     };
 
-    setMessages(prev => [...prev, botMsg]);
+    const finalMessages = [...newMessages, botMsg];
+    setMessages(finalMessages);
+    onUpdateHistory(finalMessages); // Sync to parent
     setIsTyping(false);
   };
 
@@ -68,7 +91,34 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, goal }) => {
         : "Study Mode Disengaged. Returning to standard mentor interface.",
       timestamp: Date.now()
     };
-    setMessages(prev => [...prev, systemMsg]);
+    const updated = [...messages, systemMsg];
+    setMessages(updated);
+    onUpdateHistory(updated);
+  };
+
+  const clearHistory = () => {
+    if(confirm("Are you sure you want to clear the conversation?")) {
+        const resetMsg: ChatMessage = { 
+           id: Date.now().toString(), 
+           role: 'model', 
+           text: `Conversation reset. I am ready to assist with your goal: "${goal}".`, 
+           timestamp: Date.now() 
+       };
+       setMessages([resetMsg]);
+       onUpdateHistory([resetMsg]);
+       setShowSettings(false);
+    }
+  };
+
+  const exportHistory = () => {
+    const text = messages.map(m => `[${new Date(m.timestamp).toLocaleString()}] ${m.role.toUpperCase()}: ${m.text}`).join('\n\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bridge-chat-history-${Date.now()}.txt`;
+    a.click();
+    setShowSettings(false);
   };
 
   if (!isOpen) return null;
@@ -85,7 +135,7 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, goal }) => {
     >
       {/* Header */}
       <div className={`
-        backdrop-blur p-4 border-b border-zinc-800 flex justify-between items-center transition-colors
+        backdrop-blur p-4 border-b border-zinc-800 flex justify-between items-center transition-colors relative
         ${isStudyMode ? 'bg-zinc-900/95' : 'bg-zinc-900/80'}
       `}>
         <div className="flex items-center gap-2">
@@ -111,6 +161,22 @@ const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose, goal }) => {
             {isStudyMode ? 'Exit Focus' : 'Study Mode'}
           </button>
           
+          <div className="relative">
+              <button onClick={() => setShowSettings(!showSettings)} className="text-zinc-500 hover:text-white transition-colors p-1">
+                  <Settings size={18} />
+              </button>
+              {showSettings && (
+                  <div className="absolute right-0 top-full mt-2 w-40 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl overflow-hidden z-50">
+                      <button onClick={exportHistory} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest text-zinc-300 hover:bg-zinc-800 flex items-center gap-2">
+                          <Download size={14} /> Export TXT
+                      </button>
+                      <button onClick={clearHistory} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest text-red-400 hover:bg-zinc-800 flex items-center gap-2">
+                          <Trash2 size={14} /> Clear Chat
+                      </button>
+                  </div>
+              )}
+          </div>
+
           <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors p-1">
             <X size={18} />
           </button>

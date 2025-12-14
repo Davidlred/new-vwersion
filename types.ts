@@ -13,6 +13,13 @@ export interface JournalEntry {
   content: string;
 }
 
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: number;
+}
+
 export interface Goal {
   id: string;
   title: string;
@@ -21,6 +28,7 @@ export interface Goal {
   currentRoutineImageBase64: string | null;
   tasks: DailyTask[];
   journal: JournalEntry[];
+  chatHistory: ChatMessage[];
   motivationalQuote: string;
   progress: number; // 0 to 100 (Daily Progress)
   streak: number; // Number of days completed
@@ -53,13 +61,6 @@ export interface PlanResponse {
     impactScore: number;
   }[];
   quote: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'model';
-  text: string;
-  timestamp: number;
 }
 
 // --- SOCIAL TYPES ---

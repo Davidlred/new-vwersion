@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Coven, PublicUser, SocialMessage } from '../types';
 import { socialService } from '../services/socialService';
-import { Users, Search, MessageCircle, ArrowLeft, Send, Lock, Hash, UserPlus, LogOut } from 'lucide-react';
+import { Users, Search, MessageCircle, ArrowLeft, Send, Lock, Hash, UserPlus, LogOut, CheckCircle2 } from 'lucide-react';
 
 interface CovenHubProps {
   userEmail: string;
@@ -82,6 +82,14 @@ const CovenHub: React.FC<CovenHubProps> = ({ userEmail, userGoalKeyword, onBack 
 
   // Actions
   const handleCreateCoven = async () => {
+    // If already in a coven, confirm switch
+    if (myCoven) {
+        if (!confirm(`You are currently in "${myCoven.name}". Creating a new Coven will switch your allegiance. Proceed?`)) {
+            return;
+        }
+        await socialService.leaveCoven(myCoven.id, userEmail);
+    }
+
     const name = prompt("Name your Coven:");
     if (!name) return;
     const focus = prompt("What is the shared goal?");
@@ -95,6 +103,15 @@ const CovenHub: React.FC<CovenHubProps> = ({ userEmail, userGoalKeyword, onBack 
   };
 
   const handleJoin = async (covenId: string) => {
+    // If already in a coven, confirm switch
+    if (myCoven) {
+        if (myCoven.id === covenId) return; // Already in it
+        if (!confirm(`You are currently in "${myCoven.name}". Joining this Coven will switch your allegiance. Proceed?`)) {
+            return;
+        }
+        await socialService.leaveCoven(myCoven.id, userEmail);
+    }
+
     setLoading(true);
     await socialService.joinCoven(covenId, userEmail);
     loadData();
@@ -129,7 +146,27 @@ const CovenHub: React.FC<CovenHubProps> = ({ userEmail, userGoalKeyword, onBack 
   // -- SUB VIEWS --
 
   const renderFinder = () => {
-    const filteredCovens = allCovens.filter(c => 
+    // SORTING LOGIC:
+    // 1. Relevance: If userGoalKeyword matches focus or name.
+    // 2. Popularity: Number of members.
+    const sortedCovens = [...allCovens].sort((a, b) => {
+      // 1. Relevance Check
+      if (userGoalKeyword) {
+         const k = userGoalKeyword.toLowerCase();
+         // Simple heuristic: 1 point if focus contains keyword, 1 point if name contains keyword
+         const aScore = (a.focus.toLowerCase().includes(k) ? 2 : 0) + (a.name.toLowerCase().includes(k) ? 1 : 0);
+         const bScore = (b.focus.toLowerCase().includes(k) ? 2 : 0) + (b.name.toLowerCase().includes(k) ? 1 : 0);
+         
+         if (aScore !== bScore) {
+           return bScore - aScore; // Higher relevance first
+         }
+      }
+      
+      // 2. Member Count (Descending)
+      return b.members.length - a.members.length;
+    });
+
+    const filteredCovens = sortedCovens.filter(c => 
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       c.focus.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -155,8 +192,8 @@ const CovenHub: React.FC<CovenHubProps> = ({ userEmail, userGoalKeyword, onBack 
             Join a Coven to keep your goals in check. Accountability is the bridge between intention and achievement.
           </p>
 
-          {myCoven ? (
-            <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex justify-between items-center">
+          {myCoven && (
+            <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-xl flex justify-between items-center mb-6">
               <div>
                 <p className="text-xs text-zinc-500 uppercase">Current Allegiance</p>
                 <h3 className="text-white font-bold text-lg">{myCoven.name}</h3>
@@ -168,37 +205,54 @@ const CovenHub: React.FC<CovenHubProps> = ({ userEmail, userGoalKeyword, onBack 
                 Enter Altar
               </button>
             </div>
-          ) : (
-            <div className="grid gap-4">
-              <button 
+          )}
+
+          <div className="grid gap-4">
+            <button 
                 onClick={handleCreateCoven}
                 className="w-full border border-dashed border-zinc-700 p-4 rounded-xl text-zinc-400 hover:text-white hover:border-white transition-colors flex items-center justify-center gap-2 uppercase text-xs font-bold tracking-widest"
-              >
+            >
                 <UserPlus size={16} /> Establish New Coven
-              </button>
+            </button>
 
-              {filteredCovens.length === 0 ? (
+            {filteredCovens.length === 0 ? (
                 <div className="text-center p-8 text-zinc-500 text-xs uppercase tracking-widest">
-                  No covens found matching "{searchTerm}"
+                No covens found matching "{searchTerm}"
                 </div>
-              ) : (
-                filteredCovens.map(coven => (
-                  <div key={coven.id} className="bg-black border border-zinc-800 p-4 rounded-xl flex justify-between items-center group hover:border-zinc-600 transition-colors">
-                    <div>
-                      <h3 className="font-bold text-white">{coven.name}</h3>
-                      <p className="text-xs text-zinc-500">{coven.members.length} Members • Focus: {coven.focus}</p>
+            ) : (
+                filteredCovens.map(coven => {
+                // Don't show the "Join" button for the coven we are currently in, just show it as existing
+                const isMyCoven = myCoven?.id === coven.id;
+                // Check if this coven is "relevant"
+                const isRelevant = userGoalKeyword && (coven.focus.toLowerCase().includes(userGoalKeyword.toLowerCase()) || coven.name.toLowerCase().includes(userGoalKeyword.toLowerCase()));
+                
+                return (
+                    <div key={coven.id} className={`bg-black border p-4 rounded-xl flex justify-between items-center group transition-colors ${isMyCoven ? 'border-zinc-600 bg-zinc-900/30' : 'border-zinc-800 hover:border-zinc-600'}`}>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-white">{coven.name}</h3>
+                            {isRelevant && (
+                                <span className="text-[10px] bg-white text-black px-2 py-0.5 rounded-full font-bold uppercase">Recommended</span>
+                            )}
+                            {isMyCoven && (
+                                <span className="text-[10px] bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-full font-bold uppercase border border-zinc-600">Joined</span>
+                            )}
+                        </div>
+                        <p className="text-xs text-zinc-500">{coven.members.length} Members • Focus: {coven.focus}</p>
                     </div>
-                    <button 
-                      onClick={() => handleJoin(coven.id)}
-                      className="bg-zinc-900 text-white text-xs font-bold uppercase px-4 py-2 rounded border border-zinc-800 hover:bg-white hover:text-black transition-colors"
-                    >
-                      Join
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+                    {!isMyCoven && (
+                        <button 
+                            onClick={() => handleJoin(coven.id)}
+                            className="bg-zinc-900 text-white text-xs font-bold uppercase px-4 py-2 rounded border border-zinc-800 hover:bg-white hover:text-black transition-colors"
+                        >
+                            Join
+                        </button>
+                    )}
+                    </div>
+                );
+                })
+            )}
+          </div>
         </div>
       </div>
     );

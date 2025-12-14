@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserState, AppStep, DailyTask, Goal } from './types';
+import { UserState, AppStep, DailyTask, Goal, ChatMessage } from './types';
 import Dashboard from './components/Dashboard';
 import GoalList from './components/GoalList';
 import CovenHub from './components/CovenHub';
@@ -293,6 +293,18 @@ const App: React.FC = () => {
     setStep(AppStep.ONBOARDING_DETAILS);
   };
 
+  const deleteGoal = (goalId: string) => {
+    if (confirm("Are you sure you want to delete this protocol? This action cannot be undone.")) {
+       setAppState(prev => ({
+         ...prev,
+         goals: prev.goals.filter(g => g.id !== goalId)
+       }));
+       if (activeGoalId === goalId) {
+         setActiveGoalId(null);
+       }
+    }
+  };
+
   const handleResetIdentity = () => {
     setInputImage(null);
     setAppState(prev => ({ ...prev, userImageBase64: null }));
@@ -344,6 +356,7 @@ const App: React.FC = () => {
           completed: false
         })),
         journal: [],
+        chatHistory: [], // Initialize chat history
         motivationalQuote: plan.quote,
         progress: 0,
         streak: 0,
@@ -464,6 +477,16 @@ const App: React.FC = () => {
     });
   };
 
+  const handleUpdateChatHistory = (messages: ChatMessage[]) => {
+    const activeGoal = appState.goals.find(g => g.id === activeGoalId);
+    if (!activeGoal) return;
+
+    updateActiveGoal({
+      ...activeGoal,
+      chatHistory: messages
+    });
+  };
+
   /* -------------------------------------------------------------------------- */
   /*                                    VIEWS                                   */
   /* -------------------------------------------------------------------------- */
@@ -560,6 +583,7 @@ const App: React.FC = () => {
           setStep(AppStep.DASHBOARD);
         }}
         onAddGoal={startNewGoal}
+        onDeleteGoal={deleteGoal}
         onSignOut={handleSignOut}
         installPrompt={deferredPrompt}
         onInstall={handleInstallClick}
@@ -735,6 +759,7 @@ const App: React.FC = () => {
                     onDeleteTask={deleteTask}
                     onAddJournalEntry={addJournalEntry}
                     onOpenCoven={() => setStep(AppStep.COVEN)}
+                    onUpdateChatHistory={handleUpdateChatHistory}
                 />
             </>
         );
@@ -748,10 +773,13 @@ const App: React.FC = () => {
   }
 
   if (step === AppStep.COVEN && currentUserEmail) {
+    // PASS ACTIVE GOAL TITLE FOR RELEVANCE SORTING
+    const activeGoal = appState.goals.find(g => g.id === activeGoalId);
+
     return (
       <CovenHub 
         userEmail={currentUserEmail} 
-        userGoalKeyword="" // Future: Enhance goal matching
+        userGoalKeyword={activeGoal ? activeGoal.title : ""}
         onBack={() => {
           // Optimized Back: Use animation frame to allow button click visual feedback before heavy state change
           requestAnimationFrame(() => {

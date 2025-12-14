@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { DailyTask, Goal } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { DailyTask, Goal, ChatMessage } from '../types';
 import Visualizer from './Visualizer';
 import RealityCheck from './RealityCheck';
 import ProgressChart from './ProgressChart';
@@ -17,11 +17,12 @@ interface DashboardProps {
   onDeleteTask: (id: string) => void;
   onAddJournalEntry: (content: string) => void;
   onOpenCoven: () => void;
+  onUpdateChatHistory: (messages: ChatMessage[]) => void;
 }
 
 type Tab = 'PROTOCOL' | 'REALITY';
 
-const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAddTask, onEditTask, onDeleteTask, onAddJournalEntry, onOpenCoven }) => {
+const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAddTask, onEditTask, onDeleteTask, onAddJournalEntry, onOpenCoven, onUpdateChatHistory }) => {
   const [activeTab, setActiveTab] = useState<Tab>('PROTOCOL');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isJournalOpen, setIsJournalOpen] = useState(false);
@@ -40,6 +41,22 @@ const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAdd
   const [refreshTimeLeft, setRefreshTimeLeft] = useState('');
   const [deadlineTimeLeft, setDeadlineTimeLeft] = useState('');
   const [daysRemaining, setDaysRemaining] = useState(0);
+
+  // Progress Animation State
+  const prevProgressRef = useRef(goal.progress);
+  const [showProgressFlash, setShowProgressFlash] = useState(false);
+
+  useEffect(() => {
+    // Detect progress increase
+    if (goal.progress > prevProgressRef.current) {
+      setShowProgressFlash(true);
+      const timer = setTimeout(() => setShowProgressFlash(false), 1500);
+      prevProgressRef.current = goal.progress;
+      return () => clearTimeout(timer);
+    } else if (goal.progress < prevProgressRef.current) {
+      prevProgressRef.current = goal.progress;
+    }
+  }, [goal.progress]);
 
   useEffect(() => {
     const updateTimers = () => {
@@ -117,8 +134,25 @@ const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAdd
 
   return (
     <div className="min-h-screen bg-black text-white p-6 max-w-4xl mx-auto flex flex-col gap-8 animate-fade-in relative">
+      
+      {/* Dynamic Progress Flash Overlay */}
+      {showProgressFlash && (
+        <div className="fixed inset-0 z-[100] pointer-events-none flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-200">
+             <div className="transform transition-all duration-300 animate-in zoom-in-50 slide-in-from-bottom-10">
+                <div className="text-8xl font-black text-white tracking-tighter drop-shadow-[0_0_50px_rgba(255,255,255,0.8)] animate-pulse">
+                   {Math.round(goal.progress)}%
+                </div>
+                <div className="text-center">
+                   <span className="bg-white text-black px-4 py-1 text-xs font-bold uppercase tracking-[0.3em] shadow-[0_0_20px_rgba(255,255,255,0.4)]">
+                      Impact Verified
+                   </span>
+                </div>
+             </div>
+        </div>
+      )}
+
       {/* Header */}
-      <header className="flex flex-col gap-4 border-b border-zinc-800 pb-4">
+      <header className="flex flex-col gap-4 border-b border-zinc-800 pb-4 relative z-10">
         <div className="flex justify-between items-center">
             <button 
             onClick={onBack}
@@ -182,7 +216,7 @@ const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAdd
       </header>
 
       {/* Navigation Tabs */}
-      <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-lg self-start border border-zinc-800">
+      <div className="flex gap-1 bg-zinc-900/50 p-1 rounded-lg self-start border border-zinc-800 relative z-10">
          <button 
            onClick={() => setActiveTab('PROTOCOL')}
            className={`flex items-center gap-2 px-6 py-2 rounded-md text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'PROTOCOL' ? 'bg-white text-black shadow-lg' : 'text-zinc-500 hover:text-white'}`}
@@ -202,11 +236,11 @@ const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAdd
       {activeTab === 'PROTOCOL' ? (
         <>
           {/* Quote */}
-          <div className="bg-zinc-900/50 p-6 rounded-xl border-l-4 border-white italic text-zinc-300 animate-in fade-in slide-in-from-bottom-2">
+          <div className="bg-zinc-900/50 p-6 rounded-xl border-l-4 border-white italic text-zinc-300 animate-in fade-in slide-in-from-bottom-2 relative z-10">
             "{goal.motivationalQuote}"
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 relative z-10">
             
             {/* Left Col: Visualizer & Stats */}
             <div className="flex flex-col gap-6">
@@ -343,7 +377,7 @@ const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAdd
           </div>
         </>
       ) : (
-        <div className="animate-in fade-in slide-in-from-right duration-500">
+        <div className="animate-in fade-in slide-in-from-right duration-500 relative z-10">
            <RealityCheck 
              image={goal.currentRoutineImageBase64} 
              routine={goal.routine} 
@@ -360,7 +394,13 @@ const Dashboard: React.FC<DashboardProps> = ({ goal, onBack, onToggleTask, onAdd
       </button>
 
       {/* Chat Window */}
-      <AIChat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} goal={goal.title} />
+      <AIChat 
+        isOpen={isChatOpen} 
+        onClose={() => setIsChatOpen(false)} 
+        goal={goal.title} 
+        history={goal.chatHistory || []} 
+        onUpdateHistory={onUpdateChatHistory}
+      />
       
       {/* Journal Window */}
       <Journal 

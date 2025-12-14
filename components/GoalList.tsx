@@ -1,18 +1,19 @@
 
 import React from 'react';
 import { Goal } from '../types';
-import { Plus, ChevronRight, Target, Clock, LogOut, Download } from 'lucide-react';
+import { Plus, ChevronRight, Target, Clock, LogOut, Download, Trash2 } from 'lucide-react';
 
 interface GoalListProps {
   goals: Goal[];
   onSelectGoal: (id: string) => void;
   onAddGoal: () => void;
+  onDeleteGoal: (id: string) => void;
   onSignOut: () => void;
   installPrompt: any;
   onInstall: () => void;
 }
 
-const GoalList: React.FC<GoalListProps> = ({ goals, onSelectGoal, onAddGoal, onSignOut, installPrompt, onInstall }) => {
+const GoalList: React.FC<GoalListProps> = ({ goals, onSelectGoal, onAddGoal, onDeleteGoal, onSignOut, installPrompt, onInstall }) => {
   return (
     <div className="min-h-screen bg-black text-white p-6 max-w-4xl mx-auto flex flex-col gap-8 animate-in fade-in duration-500">
       <header className="flex justify-between items-center border-b border-zinc-800 pb-6">
@@ -45,38 +46,51 @@ const GoalList: React.FC<GoalListProps> = ({ goals, onSelectGoal, onAddGoal, onS
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {goals.map((goal) => (
-          <button
-            key={goal.id}
-            onClick={() => onSelectGoal(goal.id)}
-            className="group relative h-48 rounded-2xl border border-zinc-800 bg-zinc-900/30 overflow-hidden text-left transition-all hover:border-white hover:bg-zinc-900 focus:outline-none"
-          >
-            {/* Background Image / Future Self Blur */}
-            {goal.futureSelfImageBase64 && (
-              <div className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity bg-center bg-cover" 
-                   style={{ backgroundImage: `url(${goal.futureSelfImageBase64})` }} 
-              />
-            )}
-            
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 flex flex-col justify-end">
-              <h3 className="text-xl font-bold text-white mb-1 line-clamp-1">{goal.title}</h3>
-              <div className="flex justify-between items-end">
-                <div className="space-y-1">
-                  <p className="text-xs text-zinc-400 uppercase tracking-widest flex items-center gap-1">
-                    <Clock size={10} /> Created: {new Date(goal.createdAt).toLocaleDateString()}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <div className="w-24 h-1 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-white transition-all" style={{ width: `${goal.progress}%` }} />
+          <div key={goal.id} className="relative group">
+            <button
+              onClick={() => onSelectGoal(goal.id)}
+              className="w-full h-48 rounded-2xl border border-zinc-800 bg-zinc-900/30 overflow-hidden text-left transition-all hover:border-white hover:bg-zinc-900 focus:outline-none relative"
+            >
+              {/* Background Image / Future Self Blur */}
+              {goal.futureSelfImageBase64 && (
+                <div className="absolute inset-0 opacity-20 group-hover:opacity-40 transition-opacity bg-center bg-cover" 
+                    style={{ backgroundImage: `url(${goal.futureSelfImageBase64})` }} 
+                />
+              )}
+              
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6 flex flex-col justify-end">
+                <h3 className="text-xl font-bold text-white mb-1 line-clamp-1 pr-8">{goal.title}</h3>
+                <div className="flex justify-between items-end">
+                  <div className="space-y-1">
+                    <p className="text-xs text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+                      <Clock size={10} /> Created: {new Date(goal.createdAt).toLocaleDateString()}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-white transition-all" style={{ width: `${goal.progress}%` }} />
+                      </div>
+                      <span className="text-xs font-mono">{Math.round(goal.progress)}%</span>
                     </div>
-                    <span className="text-xs font-mono">{Math.round(goal.progress)}%</span>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center transform translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all">
+                    <ChevronRight size={16} />
                   </div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center transform translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all">
-                  <ChevronRight size={16} />
-                </div>
               </div>
-            </div>
-          </button>
+            </button>
+            
+            {/* Delete Button - Positioned absolutely on top of the card but handled separately */}
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteGoal(goal.id);
+              }}
+              className="absolute top-4 right-4 z-20 p-2 bg-black/50 hover:bg-red-900/80 text-zinc-500 hover:text-white rounded-lg border border-transparent hover:border-red-500 transition-all opacity-0 group-hover:opacity-100 backdrop-blur-sm"
+              title="Delete Protocol"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         ))}
 
         {/* Add New Goal Card */}
