@@ -56,11 +56,30 @@ module.exports = {
   },
 
   /**
-   * Generates daily tasks
+   * Generates daily tasks with Progressive Difficulty
    */
   generateDailyActions: async (userId, routine, goal, dayContext = 1, daysRemaining = 30) => {
     const chat = getChatSession(userId);
     
+    // Calculate Progression Phase & Difficulty
+    const totalEstimatedDays = dayContext + daysRemaining;
+    const safeTotal = totalEstimatedDays === 0 ? 1 : totalEstimatedDays;
+    const progressRatio = Math.min(1, dayContext / safeTotal);
+    
+    let phase = "INITIATION";
+    let difficultyInstruction = "Focus on small, consistent habits. Low friction. Build the foundation.";
+    
+    if (progressRatio > 0.2 && progressRatio <= 0.5) {
+        phase = "ACCELERATION";
+        difficultyInstruction = "Increase intensity. Introduce slightly uncomfortable tasks. Compound the habits.";
+    } else if (progressRatio > 0.5 && progressRatio <= 0.8) {
+        phase = "PEAK PERFORMANCE";
+        difficultyInstruction = "High difficulty. Complex tasks requiring deep work. Test the user's limits.";
+    } else if (progressRatio > 0.8) {
+        phase = "FINAL SPRINT";
+        difficultyInstruction = "Maximum effort. All-out execution to cross the finish line. No excuses.";
+    }
+
     let urgency = "NORMAL";
     if (daysRemaining < 7) urgency = "CRITICAL";
     else if (daysRemaining < 30) urgency = "HIGH";
@@ -73,11 +92,14 @@ module.exports = {
       Time Remaining: ${daysRemaining} days.
       Urgency Level: ${urgency}.
       
+      PROGRESSION PHASE: ${phase} (${Math.round(progressRatio * 100)}% complete).
+      DIFFICULTY INSTRUCTION: ${difficultyInstruction}
+      
       Create a concrete, actionable daily to-do list (max 5 items) for TODAY.
       
       CRITICAL INSTRUCTION:
-      Since urgency is ${urgency}, adjust the intensity of the tasks.
-      ${urgency === 'CRITICAL' ? 'Tasks must be drastic and high-impact. No fluff.' : 'Focus on consistency and building momentum.'}
+      Since urgency is ${urgency} and phase is ${phase}, strictly adhere to the difficulty instruction.
+      ${urgency === 'CRITICAL' ? 'Tasks must be drastic and high-impact. No fluff.' : 'Focus on consistency.'}
       
       Also provide a short, punchy, dark-themed motivational quote that references time running out or the cost of delay.
     `;

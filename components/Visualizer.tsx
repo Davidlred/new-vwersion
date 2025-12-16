@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { Info } from 'lucide-react';
 
 interface VisualizerProps {
   progress: number; // 0 to 100
@@ -10,6 +11,7 @@ interface VisualizerProps {
 const Visualizer: React.FC<VisualizerProps> = ({ progress, futureSelfImage, drift }) => {
   const [displayProgress, setDisplayProgress] = useState(0);
   const [displayDrift, setDisplayDrift] = useState(0);
+  const [showDriftInfo, setShowDriftInfo] = useState(false);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -40,15 +42,39 @@ const Visualizer: React.FC<VisualizerProps> = ({ progress, futureSelfImage, drif
            }}>
       </div>
 
-      {/* Trajectory Label */}
+      {/* Trajectory Label & Info Tooltip */}
       <div className={`absolute top-4 left-4 z-40 bg-zinc-900/80 rounded-lg border p-1 transition-colors ${displayDrift > 40 ? 'border-red-900' : 'border-zinc-700'}`}>
-        <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded text-black transition-colors ${
-          displayDrift > 60 ? 'bg-red-600 text-white' : 
-          displayDrift > 30 ? 'bg-amber-500 text-black' : 
-          'bg-white'
-        }`}>
-          Trajectory: {displayDrift > 60 ? 'CRITICAL FAILURE' : displayDrift > 30 ? 'DRIFTING' : 'LOCKED ON'}
-        </span>
+        <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded text-black transition-colors ${
+            displayDrift > 60 ? 'bg-red-600 text-white' : 
+            displayDrift > 30 ? 'bg-amber-500 text-black' : 
+            'bg-white'
+            }`}>
+            Trajectory: {displayDrift > 60 ? 'CRITICAL FAILURE' : displayDrift > 30 ? 'DRIFTING' : 'LOCKED ON'}
+            </span>
+            <button 
+                onClick={() => setShowDriftInfo(!showDriftInfo)}
+                className="text-zinc-500 hover:text-white transition-colors p-1"
+                aria-label="What is Drift?"
+            >
+                <Info size={14} />
+            </button>
+        </div>
+        
+        {/* Info Box */}
+        {showDriftInfo && (
+            <div className="absolute top-full left-0 mt-2 w-64 bg-zinc-900 border border-zinc-700 p-4 rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-white mb-2">What is Drift?</h4>
+                <p className="text-[10px] text-zinc-400 leading-relaxed">
+                    Drift measures how far you have deviated from your goal path. 
+                    <br/><br/>
+                    <strong className="text-white">Causes:</strong> Missing daily tasks, stagnation, or procrastination.
+                    <br/><br/>
+                    <strong className="text-white">Effect:</strong> High drift reduces your probability of success and physically moves your avatar away from the target beam. Complete tasks to realign.
+                </p>
+                <div className="mt-2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[6px] border-b-zinc-700 absolute -top-[6px] left-20"></div>
+            </div>
+        )}
       </div>
 
       {/* Probability */}

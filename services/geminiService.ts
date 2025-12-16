@@ -104,6 +104,26 @@ export const generatePlan = async (
   // 2. Client Side Fallback (Original Logic)
   const model = "gemini-2.5-flash";
   
+  // Calculate Progression Phase & Difficulty
+  const totalEstimatedDays = dayContext + daysRemaining;
+  // Avoid division by zero
+  const safeTotal = totalEstimatedDays === 0 ? 1 : totalEstimatedDays;
+  const progressRatio = Math.min(1, dayContext / safeTotal);
+  
+  let phase = "INITIATION";
+  let difficultyInstruction = "Focus on small, consistent habits. Low friction. Build the foundation.";
+  
+  if (progressRatio > 0.2 && progressRatio <= 0.5) {
+      phase = "ACCELERATION";
+      difficultyInstruction = "Increase intensity. Introduce slightly uncomfortable tasks. Compound the habits.";
+  } else if (progressRatio > 0.5 && progressRatio <= 0.8) {
+      phase = "PEAK PERFORMANCE";
+      difficultyInstruction = "High difficulty. Complex tasks requiring deep work. Test the user's limits.";
+  } else if (progressRatio > 0.8) {
+      phase = "FINAL SPRINT";
+      difficultyInstruction = "Maximum effort. All-out execution to cross the finish line. No excuses.";
+  }
+
   let urgency = "NORMAL";
   if (daysRemaining < 7) urgency = "CRITICAL";
   else if (daysRemaining < 30) urgency = "HIGH";
@@ -116,6 +136,9 @@ export const generatePlan = async (
     Time Remaining: ${daysRemaining} days.
     Urgency Level: ${urgency}.
     
+    PROGRESSION PHASE: ${phase} (${Math.round(progressRatio * 100)}% complete).
+    DIFFICULTY INSTRUCTION: ${difficultyInstruction}
+    
     Create a concrete, actionable daily to-do list (max 5 items) for TODAY.
     
     CRITICAL INSTRUCTION:
@@ -123,8 +146,7 @@ export const generatePlan = async (
     - No markdown formatting.
     - No introductory text.
     
-    Since urgency is ${urgency}, adjust the intensity of the tasks.
-    ${urgency === 'CRITICAL' ? 'Tasks must be drastic and high-impact. No fluff.' : 'Focus on consistency and building momentum.'}
+    Since urgency is ${urgency} and phase is ${phase}, strictly adhere to the difficulty instruction.
     
     Also provide a short, punchy, dark-themed motivational quote.
   `;
